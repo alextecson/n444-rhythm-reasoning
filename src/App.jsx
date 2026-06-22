@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { STRIPS, MASCOT_IMGS } from "./images.js";
+import { REVIEW_DOMAINS } from "./review.js";
 
 // ============================================================
 // N444 Exam 2 — Cooked or Cooking  (NGN-style review game)
@@ -491,11 +492,32 @@ function App() {
       </Shell>
     );
   }
+  if (view.name === "review") {
+    return (
+      <Shell>
+        <ReviewMenu onPick={(id) => setView({ name: "reviewTopic", domainId: id })}
+          onBack={() => setView({ name: "home" })} />
+      </Shell>
+    );
+  }
+  if (view.name === "reviewTopic") {
+    return (
+      <Shell>
+        <ReviewTopic domainId={view.domainId} topicId={view.topicId}
+          onBack={() => view.topicId
+            ? setView({ name: "reviewTopic", domainId: view.domainId })
+            : setView({ name: "review" })}
+          onOpenTopic={(tid) => setView({ name: "reviewTopic", domainId: view.domainId, topicId: tid })}
+          onQuiz={(d) => startSection("S2", d)} />
+      </Shell>
+    );
+  }
   return (
     <Shell>
       <Home counts={counts}
         onSection={(s) => setView({ name: "section", section: s })}
-        onComp={() => setView({ name: "comp" })} />
+        onComp={() => setView({ name: "comp" })}
+        onReview={() => setView({ name: "review" })} />
     </Shell>
   );
 }
@@ -524,7 +546,7 @@ function Shell({ children }) {
   );
 }
 
-function Home({ counts, onSection, onComp }) {
+function Home({ counts, onSection, onComp, onReview }) {
   return (
     <div className="home">
       <div className="home-lede home-lede-mascot">
@@ -533,6 +555,12 @@ function Home({ counts, onSection, onComp }) {
         rent-free, speedrun clinical scenarios like the main character, or send it on a
         mixed set with the domain hidden — exactly how the exam tries to cook you. No cap.</p>
       </div>
+
+      <button className="review-cta" onClick={onReview}>
+        <span className="review-cta-k">★ STUDY FIRST</span>
+        <span className="review-cta-h">Review — what you need to know</span>
+        <span className="review-cta-p">Skim the high-yield notes for each topic, then run the quiz. Don't raw-dog the exam.</span>
+      </button>
 
       <div className="cards">
         <button className="mode-card" onClick={() => onSection("S1")}>
@@ -602,6 +630,74 @@ function CompMenu({ onPick, onBack, poolSize }) {
         <button className="len-card" onClick={() => onPick(20)}><span className="len-n">20</span><span className="len-l">standard</span></button>
         <button className="len-card" onClick={() => onPick("all")}><span className="len-n">{poolSize}</span><span className="len-l">full set</span></button>
       </div>
+    </div>
+  );
+}
+
+// ---------- review (study-first) ----------
+function ReviewMenu({ onPick, onBack }) {
+  return (
+    <div className="secmenu">
+      <button className="link-btn" onClick={onBack}>← Menu</button>
+      <h2 className="secmenu-h">Review — what you need to know</h2>
+      <p className="secmenu-sub">Pick a topic, skim the high-yield notes, then jump into the quiz.</p>
+      <div className="domgrid">
+        {REVIEW_DOMAINS.map(d => (
+          <button key={d.id} className="dom-card review-dom" onClick={() => onPick(d.id)}>
+            <span className="dom-name">{d.title}</span>
+            <span className="dom-count">
+              {d.topics ? d.topics.length + " topics + overview" : d.sections.length + " sections"}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ReviewTopic({ domainId, topicId, onBack, onOpenTopic, onQuiz }) {
+  const domain = REVIEW_DOMAINS.find(d => d.id === domainId);
+  if (!domain) return null;
+  const topic = topicId && domain.topics ? domain.topics.find(t => t.id === topicId) : null;
+  const node = topic || domain;
+  return (
+    <div className="review">
+      <button className="link-btn" onClick={onBack}>
+        ← {topic ? "Back to " + domain.title : "Review topics"}
+      </button>
+      <h2 className="review-h">{topic ? topic.title : domain.title}</h2>
+      {node.blurb ? <p className="review-blurb">{node.blurb}</p> : null}
+
+      {topic && topic.strip && STRIPS[topic.strip]
+        ? <div className="review-strip">
+            <img src={STRIPS[topic.strip]} alt={topic.title + " rhythm strip"}
+                 width="900" height="274" draggable="false" decoding="async" />
+          </div>
+        : null}
+
+      {node.sections.map((s, i) => (
+        <section className="review-sec" key={i}>
+          <h3>{s.h}</h3>
+          <ul>{s.b.map((line, j) => <li key={j}>{line}</li>)}</ul>
+        </section>
+      ))}
+
+      {!topic && domain.topics ? (
+        <div className="review-rhythms">
+          <h3 className="review-rhythms-h">{domain.subLabel || "Go deeper"}</h3>
+          <div className="rhythm-chips">
+            {domain.topics.map(t => (
+              <button key={t.id} className="rhythm-chip" onClick={() => onOpenTopic(t.id)}>
+                {t.title}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <button className="btn-primary review-quiz" onClick={() => onQuiz(domain.quizDomain)}>
+        Quiz {domain.title} →
+      </button>
     </div>
   );
 }
@@ -879,5 +975,39 @@ button:focus-visible,[role=button]:focus-visible{ outline:2px solid var(--green)
   .qtags{ padding-right:58px; }
   .feedback .mascot{ height:80px; }
 }
+
+/* review (study-first) */
+.review-cta{ display:block; width:100%; text-align:left; cursor:pointer; color:var(--ink);
+  border:1px solid var(--green-dim); border-radius:var(--r); padding:16px 18px; margin:0 0 18px;
+  background:linear-gradient(180deg,#13211B,#11181E);
+  transition:border-color .18s, transform .18s; }
+.review-cta:hover{ border-color:var(--green); transform:translateY(-2px); }
+.review-cta-k{ display:block; font-family:'JetBrains Mono',monospace; font-size:11px;
+  letter-spacing:.12em; color:var(--green); }
+.review-cta-h{ display:block; font-family:'Space Grotesk',sans-serif; font-weight:600;
+  font-size:18px; margin:3px 0 5px; }
+.review-cta-p{ display:block; color:var(--muted); font-size:13.5px; line-height:1.5; }
+.review-dom .dom-name{ color:var(--ink); }
+
+.review-h{ font-family:'Space Grotesk',sans-serif; font-size:24px; margin:6px 0 4px; }
+.review-blurb{ color:var(--muted); font-size:14.5px; line-height:1.55; margin:0 0 16px; }
+.review-strip{ border:1px solid var(--line2); border-radius:10px; overflow:hidden;
+  background:#060A0E; margin:0 0 18px; }
+.review-strip img{ width:100%; height:auto; aspect-ratio:900 / 274; display:block; }
+.review-sec{ background:var(--panel); border:1px solid var(--line); border-radius:12px;
+  padding:14px 16px 6px; margin:0 0 12px; }
+.review-sec h3{ font-family:'Space Grotesk',sans-serif; font-size:15.5px; font-weight:600;
+  margin:0 0 8px; color:var(--ink); }
+.review-sec ul{ margin:0 0 8px; padding-left:18px; }
+.review-sec li{ color:var(--muted); font-size:14px; line-height:1.6; margin-bottom:7px; }
+.review-rhythms{ margin:18px 0 8px; }
+.review-rhythms-h{ font-family:'Space Grotesk',sans-serif; font-size:15px; color:var(--faint);
+  text-transform:uppercase; letter-spacing:.08em; margin:0 0 10px; }
+.rhythm-chips{ display:flex; flex-wrap:wrap; gap:9px; }
+.rhythm-chip{ background:var(--panel2); border:1px solid var(--line2); border-radius:999px;
+  padding:8px 14px; font-size:13.5px; color:var(--ink); cursor:pointer;
+  transition:border-color .18s, background .18s; }
+.rhythm-chip:hover{ border-color:var(--green-dim); background:#1a2630; }
+.review-quiz{ width:100%; margin-top:20px; }
 
 `;
